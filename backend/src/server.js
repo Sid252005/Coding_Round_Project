@@ -90,15 +90,15 @@ app.get('/health', (req, res) => {
 });
 
 // ─── Serve React Frontend (production) ────────────────────────────────────────
-// In Docker, the frontend build is copied to ./public (relative to server.js)
-// This serves the React app for ALL non-API routes
+// Docker layout: WORKDIR=/app, server.js is in /app/src/, public is in /app/public/
+// __dirname = /app/src  →  ../public = /app/public  ✓
 if (process.env.NODE_ENV === 'production') {
   const path = require('path');
-  const frontendBuild = path.join(__dirname, '../../public');
+  const frontendBuild = path.join(__dirname, '../public');
 
   app.use(express.static(frontendBuild));
 
-  // React Router: return index.html for any non-API route
+  // React Router: send index.html for every non-API, non-static route
   app.get('*', (req, res) => {
     res.sendFile(path.join(frontendBuild, 'index.html'));
   });
@@ -114,6 +114,15 @@ app.use(errorHandler);
 
 // ─── Start Server ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
+
+// Validate critical env vars before starting
+const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'JWT_SECRET', 'ADMIN_EMAIL', 'ADMIN_PASSWORD_HASH'];
+const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (missingEnv.length > 0) {
+  console.error(`\n❌ Missing required environment variables:\n   ${missingEnv.join(', ')}`);
+  console.error('   Set these in Railway → Variables tab, then redeploy.\n');
+  process.exit(1); // Crash loudly with a clear message
+}
 
 server.listen(PORT, () => {
   console.log(`\n🪄 Deathly Hallows Coding Challenge Backend`);
